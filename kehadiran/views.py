@@ -11,6 +11,16 @@ from kehadiran.forms import IzinForm
 
 import json
 
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
+# reportlab pdf
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib import colors
+from django.http import HttpResponse
+
 # Create your views here.
 
 @login_required(login_url=settings.LOGIN_URL)
@@ -22,7 +32,7 @@ def daftar_hadir(request):
         tahun = request.POST['tahun']
         daftar_hadir = Kehadiran.objects.filter(waktu__year=tahun, waktu__month=bulan, karyawan__id=request.session['karyawan_id'])
 
-    return render(request, 'new/daftar_hadir.html', {'daftar_hadir':daftar_hadir})
+    return render(request, 'new/daftar_hadir.html', {'daftar_hadir':daftar_hadir,'bulan':bulan,'tahun':tahun})
 
 @login_required(login_url=settings.LOGIN_URL)
 def pengajuan_izin(request):
@@ -47,7 +57,17 @@ def pengajuan_izin(request):
 
 @login_required(login_url=settings.LOGIN_URL)
 def daftar_izin(request):
-    daftar_izin = Izin.objects.filter(karyawan__id=request.session['karyawan_id'])
+    daftar_izin = Izin.objects.filter(karyawan__id=request.session['karyawan_id']).order_by('-waktu_mulai')
+
+    paginator = Paginator(daftar_izin, 5)
+    page = request.GET.get('page')
+    try:
+        daftar_izin = paginator.page(page)
+    except PageNotAnInteger:
+        daftar_izin = paginator.page(1)
+    except EmptyPage:
+        daftar_izin = paginator.page(paginator.num_pages)
+
     return render(request, 'new/daftar_izin.html', {'daftar_izin':daftar_izin})
    
 @login_required(login_url=settings.LOGIN_URL)
@@ -62,3 +82,49 @@ def tampil_grafik(request, bulan, tahun):
 
     chart_data = json.dumps({"data":temp_chart_data})
     return render(request, 'new/tampil_grafik.html', {'chart_data':chart_data, 'bulan':bulan, 'tahun':tahun})    
+
+@login_required(login_url=settings.LOGIN_URL)
+def cetak_daftar_hadir(request, bulan, tahun):
+    # pengaturan respon berformat pdf
+    filename = "daftar_hadir_" + str(bulan) + "_" +str(tahun)
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="' + filename + '.pdf"'
+
+    # mengambil daftar kehadiran dan mengubahnya menjadi data untuk tebel
+    data = Kehadiran.objects.filter(waktu__year=tahun, waktu__month=bulan, karyawan__id=request.session['karyawan_id'])
+    table_data = []
+    table_data.append(["Tanggal", "Status"])
+    for x in data:
+        table_data.append([x.waktu, x.jenis_kehadiran])
+
+    # membuat dokumen baru
+    doc = SimpleDocTemplate(response, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    styles = getSampleStyleSheet()
+
+    # pengaturan tabel di pdf
+    table_style = TableStyle([
+        ('ALIGN', (1,1), (-2,-2), 'RIGHT'),
+        ('FONT', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('VALIGN', (0,0), (0,-1), 'TOP'),
+        ('INNERGRID', (0,0), (-1,-1), 0.25, colors.black),
+        ('BOX', (0,0), (-1,-1), 0.25, colors.black),
+    ])
+
+    kehadiran_table = Table(table_data, colWidths=[doc.width/4.0]*2)
+    kehadiran_table.setStyle(table_style)
+
+    # mengisi pdf
+    content = []
+    content.append(Paragraph('Daftar Kehadiran %s %s' % (bulan, tahun), styles['Title']))
+    content.append(Spacer(1,12))
+    content.append(Paragraph('Berikut ini adalah hasil rekam jejak kehadiran Anda selama bulan %s tahun %s' % (bulan, tahun), styles['Normal']))
+    content.append(Spacer(1,12))
+    content.append(kehadiran_table)
+    content.append(Spacer(1,36))
+    content.append(Paragraph('Mengetahui, ', styles['Normal']))
+    content.append(Spacer(1,48))
+    content.append(Paragraph('Mira Kumalasari, Head of Departement PT. Ngabuburit Sentosa Sejahtera. ', styles['Normal']))
+
+    # menghasilkan pdf untuk di download
+    doc.build(content)
+    return response
