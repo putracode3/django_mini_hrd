@@ -128,3 +128,8 @@ LOGIN_URL = '/login/'
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, "assets"),
 )
+
+# untuk upload file
+MEDIA_URL = '/media/'
+
+MEDIA_ROOT = os.path.join(BASE_DIR,"assets/")

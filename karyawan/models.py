@@ -4,6 +4,10 @@ from __future__ import unicode_literals
 from django.db import models
 from django.contrib.auth.models import User
 
+# untuk upload foto
+import os
+from django.conf import settings
+
 # Create your models here.
 class Divisi (models.Model):
     nama = models.CharField(max_length=100)
@@ -41,6 +45,8 @@ class Karyawan (models.Model):
     pemilik_rekening = models.CharField(max_length=100)
     divisi = models.ForeignKey(Divisi)
     jabatan = models.ForeignKey(Jabatan)
+    # simpan foto di folder "/assets/upload"
+    foto = models.ImageField(upload_to='upload', blank=True)
 
     def __unicode__(self):
         return self.nama

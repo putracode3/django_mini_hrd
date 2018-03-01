@@ -20,6 +20,10 @@ from homepage import views as homepage_views
 from karyawan import views as karyawan_views
 from kehadiran import views as kehadiran_views
 
+# untuk upload foto
+from django.conf import settings
+from django.conf.urls.static import static
+
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
     url(r'^$', karyawan_views.profil),
@@ -30,4 +34,5 @@ urlpatterns = [
     url(r'^daftar_izin/', kehadiran_views.daftar_izin),
     url(r'^grafik/(?P<bulan>\d+)/(?P<tahun>\d+)/$', kehadiran_views.tampil_grafik),
     url(r'^cetak/(?P<bulan>\d+)/(?P<tahun>\d+)/$', kehadiran_views.cetak_daftar_hadir),
-]
+    url(r'^ganti_foto/', karyawan_views.ganti_foto),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
